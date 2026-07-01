@@ -8,7 +8,11 @@ const IMGS_PUBLIC_DIR = path.join(process.cwd(), "public", "imgs");
 /** Image extensions supported by the gallery (lowercase). */
 const SUPPORTED_EXTENSIONS = new Set([
   ".jpg", ".jpeg", ".png", ".webp", ".avif", ".svg", ".gif",
+  ".heic", ".heif",
 ]);
+
+/** Source formats that get converted to .webp at build time. */
+const CONVERTIBLE_EXTENSIONS = new Set([".heic", ".heif", ".jpg", ".jpeg"]);
 
 /**
  * Maps a file extension to our normalized format string.
@@ -99,15 +103,13 @@ export async function getImages(): Promise<ImageFile[]> {
 
     // Skip non-images and hidden files
     if (filename.startsWith(".")) continue;
-    if (!SUPPORTED_EXTENSIONS.has(ext) && ext !== ".heic" && ext !== ".heif") continue;
+    if (!SUPPORTED_EXTENSIONS.has(ext)) continue;
 
-    // For HEIC files, look for the converted webp in public
+    // For convertible source formats (HEIC, JPG), look for the .webp version in public
     let publicFilename: string;
-    if (ext === ".heic" || ext === ".heif") {
-      // Strip extension manually (path.basename 2nd arg is case-sensitive)
-      const rawName = path.basename(filename);
-      const dot = rawName.lastIndexOf(".");
-      publicFilename = (dot > 0 ? rawName.slice(0, dot) : rawName) + ".webp";
+    if (CONVERTIBLE_EXTENSIONS.has(ext)) {
+      const dot = filename.lastIndexOf(".");
+      publicFilename = (dot > 0 ? filename.slice(0, dot) : filename) + ".webp";
     } else {
       publicFilename = filename;
     }

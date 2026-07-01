@@ -30,21 +30,19 @@ export default function Gallery({ images }: GalleryProps) {
         <p className="mt-3 text-muted">Explorá el espacio</p>
       </motion.div>
 
-      {/* Masonry columns — staggered entrance per item */}
-      <div className="columns-2 sm:columns-3 lg:columns-4 xl:columns-5 gap-4 [&>*]:mb-4">
+      {/* Masonry columns */}
+      <motion.div
+        className="columns-2 sm:columns-3 lg:columns-4 xl:columns-5 gap-4 [&>*]:mb-4"
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true, amount: 0.05 }}
+        transition={{ duration: 0.6, ease: 'easeOut' }}
+      >
         {images.map((image, index) => (
-          <motion.div
+          <div
             key={image.src}
             className="break-inside-avoid overflow-hidden rounded-lg relative group cursor-pointer"
             style={{ aspectRatio: image.aspectRatio }}
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.1 }}
-            transition={{
-              duration: 0.5,
-              delay: index * 0.04,
-              ease: 'easeOut',
-            }}
             onClick={() => setLightboxIndex(index)}
           >
             <Image
@@ -60,9 +58,9 @@ export default function Gallery({ images }: GalleryProps) {
 
             {/* Hover overlay with border glow */}
             <div className="absolute inset-0 ring-1 ring-inset ring-transparent group-hover:ring-accent/40 rounded-lg transition-all duration-500" />
-          </motion.div>
+          </div>
         ))}
-      </div>
+      </motion.div>
 
       {/* Lightbox */}
       {lightboxIndex !== null && (

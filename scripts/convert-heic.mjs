@@ -1,9 +1,12 @@
 /**
- * Build-time HEIC to WebP conversion script.
+ * Build-time HEIC + JPEG to WebP conversion script.
  *
- * Scans ../imgs/ for .HEIC files, converts them to .webp using
- * heic-convert + sharp, and copies ALL images to ../public/imgs/
- * so Next.js can serve them statically.
+ * Scans ../imgs/ for .HEIC and .JPG/.JPEG files, converts them to .webp
+ * using sharp, and copies the rest (AVIF, WebP, PNG, etc.) to
+ * ../public/imgs/ so Next.js can serve them statically.
+ *
+ * JPGs are the main culprit for slow loading — they're 4-5 MB each.
+ * Converting to WebP shrinks them to ~200-500 KB with minimal quality loss.
  *
  * Usage: node scripts/convert-heic.mjs
  * Ran automatically before `next build` via the "build" script.
@@ -18,21 +21,18 @@ const ROOT = path.resolve(__dirname, "..");
 const IMGS_SRC = path.join(ROOT, "imgs");
 const IMGS_DST = path.join(ROOT, "public", "imgs");
 
-// Supported extensions that will be copied as-is
-const COPY_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".avif", ".svg", ".gif"]);
-const HEIC_EXTENSIONS = new Set([".heic", ".heif"]);
+// Formats that need conversion to WebP
+const CONVERT_EXTENSIONS = new Set([".jpg", ".jpeg", ".heic", ".heif"]);
+// Formats that can be copied as-is (already web-friendly)
+const COPY_EXTENSIONS = new Set([".png", ".webp", ".avif", ".svg", ".gif"]);
 
-/** Detect if this file is a HEIC image requiring conversion */
-function isHeic(filename) {
-  return HEIC_EXTENSIONS.has(path.extname(filename).toLowerCase());
+/** Convert any image to WebP using sharp */
+async function convertToWebp(inputBuffer) {
+  const sharp = (await import("sharp")).default;
+  return sharp(inputBuffer).webp({ quality: 85 }).toBuffer();
 }
 
-/** Detect if this file can be copied directly */
-function isCopyable(filename) {
-  return COPY_EXTENSIONS.has(path.extname(filename).toLowerCase());
-}
-
-/** Convert a single HEIC buffer to WebP via heic-convert + sharp */
+/** Convert HEIC/HEIF to WebP via heic-convert + sharp */
 async function convertHeicToWebp(inputBuffer) {
   const heicConvert = (await import("heic-convert")).default;
   const sharp = (await import("sharp")).default;
@@ -44,20 +44,33 @@ async function convertHeicToWebp(inputBuffer) {
     quality: 0.92,
   });
 
-  // Step 2: JPEG buffer → WebP file
-  const webpBuffer = await sharp(jpegBuffer).webp({ quality: 85 }).toBuffer();
+  // Step 2: JPEG buffer → WebP
+  return sharp(jpegBuffer).webp({ quality: 85 }).toBuffer();
+}
 
-  return webpBuffer;
+/** Determine the destination filename (always .webp for convertible formats) */
+function getDstFilename(file) {
+  const ext = path.extname(file).toLowerCase();
+  if (CONVERT_EXTENSIONS.has(ext)) {
+    return path.basename(file, path.extname(file)) + ".webp";
+  }
+  return file;
+}
+
+/** Check if destination needs updating (missing or older than source) */
+function needsUpdate(srcPath, dstPath) {
+  if (!fs.existsSync(dstPath)) return true;
+  const srcStat = fs.statSync(srcPath);
+  const dstStat = fs.statSync(dstPath);
+  return srcStat.mtimeMs > dstStat.mtimeMs;
 }
 
 async function main() {
-  // Ensure source exists
   if (!fs.existsSync(IMGS_SRC)) {
     console.error(`Source directory not found: ${IMGS_SRC}`);
     process.exit(1);
   }
 
-  // Ensure destination exists
   fs.mkdirSync(IMGS_DST, { recursive: true });
 
   const entries = fs.readdirSync(IMGS_SRC, { withFileTypes: true });
@@ -71,41 +84,31 @@ async function main() {
   for (const file of files) {
     const srcPath = path.join(IMGS_SRC, file);
     const ext = path.extname(file).toLowerCase();
+    const dstName = getDstFilename(file);
+    const dstPath = path.join(IMGS_DST, dstName);
 
     try {
-      if (isHeic(file)) {
-        // Convert HEIC → WebP
-        const webpName = path.basename(file, path.extname(file)) + ".webp";
-        const dstPath = path.join(IMGS_DST, webpName);
+      if (!needsUpdate(srcPath, dstPath)) {
+        skipped++;
+        continue;
+      }
 
-        // Skip if already exists and source hasn't changed
-        if (fs.existsSync(dstPath)) {
-          const srcStat = fs.statSync(srcPath);
-          const dstStat = fs.statSync(dstPath);
-          if (srcStat.mtimeMs <= dstStat.mtimeMs) {
-            skipped++;
-            continue;
-          }
-        }
-
+      if (ext === ".heic" || ext === ".heif") {
+        // HEIC → WebP (requires heic-convert)
         const inputBuffer = fs.readFileSync(srcPath);
         const webpBuffer = await convertHeicToWebp(inputBuffer);
         fs.writeFileSync(dstPath, webpBuffer);
         converted++;
-        console.log(`  ✓ ${file} → ${webpName}`);
-      } else if (isCopyable(file)) {
-        // Copy directly
-        const dstPath = path.join(IMGS_DST, file);
-
-        if (fs.existsSync(dstPath)) {
-          const srcStat = fs.statSync(srcPath);
-          const dstStat = fs.statSync(dstPath);
-          if (srcStat.mtimeMs <= dstStat.mtimeMs) {
-            skipped++;
-            continue;
-          }
-        }
-
+        console.log(`  ✓ ${file} → ${dstName}`);
+      } else if (CONVERT_EXTENSIONS.has(ext)) {
+        // JPG/JPEG → WebP (direct sharp)
+        const inputBuffer = fs.readFileSync(srcPath);
+        const webpBuffer = await convertToWebp(inputBuffer);
+        fs.writeFileSync(dstPath, webpBuffer);
+        converted++;
+        console.log(`  ✓ ${file} → ${dstName}`);
+      } else if (COPY_EXTENSIONS.has(ext)) {
+        // Already web-friendly: copy as-is
         fs.copyFileSync(srcPath, dstPath);
         copied++;
         console.log(`  ✓ ${file} (copied)`);
