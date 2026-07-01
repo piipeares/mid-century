@@ -32,17 +32,25 @@ function classifyExtension(ext: string): ImageFile["format"] {
 }
 
 /**
- * Safely extract image dimensions from a file using sharp.
+ * Safely extract image dimensions + blur placeholder from a file using sharp.
  * Falls back to a reasonable default if sharp fails or file is missing.
  */
-async function getImageDimensions(
+async function getImageMetadata(
   filepath: string
-): Promise<{ width: number; height: number }> {
+): Promise<{ width: number; height: number; blurDataURL?: string }> {
   try {
     const sharp = (await import("sharp")).default;
     const meta = await sharp(filepath).metadata();
+
+    /* Generate a tiny 20px-wide WebP as blur placeholder */
+    const blurBuffer = await sharp(filepath)
+      .resize(20, undefined, { fit: "inside" })
+      .webp({ quality: 30 })
+      .toBuffer();
+    const blurDataURL = `data:image/webp;base64,${blurBuffer.toString("base64")}`;
+
     if (meta.width && meta.height) {
-      return { width: meta.width, height: meta.height };
+      return { width: meta.width, height: meta.height, blurDataURL };
     }
   } catch {
     // sharp may fail for SVGs or other edge cases
@@ -108,7 +116,7 @@ export async function getImages(): Promise<ImageFile[]> {
     if (!publicSet.has(publicFilename)) continue;
 
     const publicPath = path.join(IMGS_PUBLIC_DIR, publicFilename);
-    const { width, height } = await getImageDimensions(publicPath);
+    const { width, height, blurDataURL } = await getImageMetadata(publicPath);
 
     results.push({
       src: `/imgs/${publicFilename}`,
@@ -117,6 +125,7 @@ export async function getImages(): Promise<ImageFile[]> {
       height,
       aspectRatio: width / height,
       format: classifyExtension(path.extname(publicFilename).toLowerCase()),
+      blurDataURL,
     });
   }
 

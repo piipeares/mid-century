@@ -11,6 +11,8 @@ export interface ImageFile {
   aspectRatio: number;
   /** File format extension */
   format: "avif" | "webp" | "jpg" | "jpeg" | "png" | "svg";
+  /** Base64 blur placeholder for smooth loading (tiny WebP) */
+  blurDataURL?: string;
 }
 
 export interface ContactFormData {

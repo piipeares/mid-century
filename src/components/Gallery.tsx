@@ -30,19 +30,21 @@ export default function Gallery({ images }: GalleryProps) {
         <p className="mt-3 text-muted">Explorá el espacio</p>
       </motion.div>
 
-      {/* Masonry columns — interleaved layout, fades in all at once */}
-      <motion.div
-        className="columns-2 sm:columns-3 lg:columns-4 xl:columns-5 gap-4 [&>*]:mb-4"
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true, amount: 0.05 }}
-        transition={{ duration: 0.8, ease: 'easeOut' }}
-      >
+      {/* Masonry columns — staggered entrance per item */}
+      <div className="columns-2 sm:columns-3 lg:columns-4 xl:columns-5 gap-4 [&>*]:mb-4">
         {images.map((image, index) => (
-          <div
+          <motion.div
             key={image.src}
             className="break-inside-avoid overflow-hidden rounded-lg relative group cursor-pointer"
             style={{ aspectRatio: image.aspectRatio }}
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.1 }}
+            transition={{
+              duration: 0.5,
+              delay: index * 0.04,
+              ease: 'easeOut',
+            }}
             onClick={() => setLightboxIndex(index)}
           >
             <Image
@@ -52,13 +54,15 @@ export default function Gallery({ images }: GalleryProps) {
               className="object-cover transition-transform duration-700 group-hover:scale-105"
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               priority={index < 6}
+              placeholder={image.blurDataURL ? 'blur' : 'empty'}
+              blurDataURL={image.blurDataURL}
             />
 
             {/* Hover overlay with border glow */}
             <div className="absolute inset-0 ring-1 ring-inset ring-transparent group-hover:ring-accent/40 rounded-lg transition-all duration-500" />
-          </div>
+          </motion.div>
         ))}
-      </motion.div>
+      </div>
 
       {/* Lightbox */}
       {lightboxIndex !== null && (
