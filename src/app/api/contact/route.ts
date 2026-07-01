@@ -4,7 +4,8 @@ import path from "node:path";
 
 interface ContactBody {
   name: string;
-  productionType: "photo" | "video" | "event";
+  productionType: "photo" | "video" | "event" | "other";
+  otherDescription?: string;
   dates?: string;
   message: string;
 }
@@ -22,8 +23,15 @@ export async function POST(request: NextRequest) {
       errors.push("El nombre o agencia debe tener al menos 2 caracteres.");
     }
 
-    if (!["photo", "video", "event"].includes(body.productionType)) {
+    if (!["photo", "video", "event", "other"].includes(body.productionType)) {
       errors.push("Tipo de producción inválido.");
+    }
+
+    if (
+      body.productionType === "other" &&
+      (!body.otherDescription || body.otherDescription.trim().length < 3)
+    ) {
+      errors.push("Describí brevemente tu tipo de producción.");
     }
 
     if (!body.message || body.message.trim().length < 10) {

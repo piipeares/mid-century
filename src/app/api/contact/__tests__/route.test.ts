@@ -124,4 +124,34 @@ describe('POST /api/contact', () => {
     expect(body.errors).toContain('El nombre o agencia debe tener al menos 2 caracteres.')
     expect(body.errors).toContain('El mensaje debe tener al menos 10 caracteres.')
   })
+
+  it('accepts "other" production type with description', async () => {
+    const res = await POST(
+      makeRequest({
+        name: 'Productora X',
+        productionType: 'other',
+        otherDescription: 'Podcast y streaming',
+        message: 'Queremos grabar una serie de podcasts en la locación.',
+      })
+    )
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.ok).toBe(true)
+  })
+
+  it('rejects "other" production type without description', async () => {
+    const res = await POST(
+      makeRequest({
+        name: 'Productora X',
+        productionType: 'other',
+        message: 'Queremos hacer algo diferente en la locación.',
+      })
+    )
+
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.ok).toBe(false)
+    expect(body.errors).toContain('Describí brevemente tu tipo de producción.')
+  })
 })

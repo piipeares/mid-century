@@ -14,11 +14,13 @@ const PRODUCTION_OPTIONS: ProductionOption[] = [
   { label: 'Fotografía', value: 'photo' },
   { label: 'Video', value: 'video' },
   { label: 'Evento', value: 'event' },
+  { label: 'Otros', value: 'other' },
 ]
 
 interface FormErrors {
   name?: string
   productionType?: string
+  otherDescription?: string
   message?: string
 }
 
@@ -28,6 +30,7 @@ export default function ContactForm() {
   const [formData, setFormData] = useState<ContactFormData>({
     name: '',
     productionType: 'photo',
+    otherDescription: '',
     dates: '',
     message: '',
   })
@@ -49,6 +52,9 @@ export default function ContactForm() {
     const newErrors: FormErrors = {}
     if (!formData.name.trim()) {
       newErrors.name = 'Este campo es obligatorio'
+    }
+    if (formData.productionType === 'other' && !formData.otherDescription?.trim()) {
+      newErrors.otherDescription = 'Describí brevemente tu tipo de producción'
     }
     if (!formData.message.trim()) {
       newErrors.message = 'Este campo es obligatorio'
@@ -165,6 +171,34 @@ export default function ContactForm() {
                 ))}
               </select>
             </div>
+
+            {/* Other description (conditional) */}
+            {formData.productionType === 'other' && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                transition={{ duration: 0.3 }}
+              >
+                <label
+                  htmlFor="otherDescription"
+                  className="text-sm font-medium text-foreground/80 mb-1.5 block"
+                >
+                  ¿Qué tipo de producción?
+                </label>
+                <input
+                  id="otherDescription"
+                  name="otherDescription"
+                  type="text"
+                  value={formData.otherDescription}
+                  onChange={handleChange}
+                  className={inputClass}
+                  placeholder="Ej: grabación de podcast, streaming, making of..."
+                />
+                {errors.otherDescription && (
+                  <p className="mt-1 text-sm text-red-500">{errors.otherDescription}</p>
+                )}
+              </motion.div>
+            )}
 
             {/* Dates */}
             <div>
