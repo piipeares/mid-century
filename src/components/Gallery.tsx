@@ -35,7 +35,7 @@ export default function Gallery({ sections }: GalleryProps) {
   }, [selectedSection, sections])
 
   return (
-    <section id="gallery" className="relative px-4 lg:px-12 pt-24 pb-32">
+    <section id="gallery" className="relative px-4 lg:px-12 pt-20 sm:pt-24 pb-20 sm:pb-32">
       {/* Section header */}
       <motion.div
         className="mb-6"
@@ -83,7 +83,7 @@ export default function Gallery({ sections }: GalleryProps) {
               )}
 
               {/* Grid — consistent column count */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
                 {section.images.map((image, idx) => {
                   /* Compute display index across all images */
                   const displayIdx = displayImages.indexOf(image)

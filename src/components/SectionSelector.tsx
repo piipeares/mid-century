@@ -42,7 +42,7 @@ export default function SectionSelector({
             key={s.slug}
             data-active={isActive}
             onClick={() => onChange(s.slug)}
-            className="relative snap-start shrink-0 px-5 py-2.5 rounded-full text-sm font-medium transition-colors"
+            className="relative snap-start shrink-0 px-5 py-3 rounded-full text-sm font-medium transition-colors"
           >
             {isActive && (
               <motion.span

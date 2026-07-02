@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type FormEvent, type ChangeEvent } from 'react'
+import { useState, useRef, type FormEvent, type ChangeEvent } from 'react'
 import { motion } from 'framer-motion'
 import { Send, CheckCircle } from 'lucide-react'
 import type { ContactFormData } from '@/types'
@@ -28,34 +28,43 @@ interface FormErrors {
 
 type SubmitState = 'idle' | 'loading' | 'success' | 'error'
 
+interface ServerErrorResponse {
+  ok: false
+  errors: string[]
+}
+
+const INITIAL_FORM: ContactFormData = {
+  name: '',
+  contactMethod: 'email',
+  contactValue: '',
+  productionType: 'photo',
+  otherDescription: '',
+  dates: '',
+  message: '',
+}
+
 export default function ContactForm() {
-  const [formData, setFormData] = useState<ContactFormData>({
-    name: '',
-    contactMethod: 'email',
-    contactValue: '',
-    productionType: 'photo',
-    otherDescription: '',
-    dates: '',
-    message: '',
-  })
+  const [formData, setFormData] = useState<ContactFormData>(INITIAL_FORM)
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitState, setSubmitState] = useState<SubmitState>('idle')
+  const [serverError, setServerError] = useState<string | null>(null)
+  const submittingRef = useRef(false)
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
-    /* Clear error for this field when user starts typing */
     if (errors[name as keyof FormErrors]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }))
     }
+    if (serverError) setServerError(null)
   }
 
   const validate = (): boolean => {
     const newErrors: FormErrors = {}
-    if (!formData.name.trim()) {
-      newErrors.name = 'Este campo es obligatorio'
+    if (!formData.name.trim() || formData.name.trim().length < 2) {
+      newErrors.name = 'Debe tener al menos 2 caracteres'
     }
     if (!formData.contactValue.trim()) {
       newErrors.contactValue = 'Este campo es obligatorio'
@@ -67,8 +76,8 @@ export default function ContactForm() {
     if (formData.productionType === 'other' && !formData.otherDescription?.trim()) {
       newErrors.otherDescription = 'Describí brevemente tu tipo de producción'
     }
-    if (!formData.message.trim()) {
-      newErrors.message = 'Este campo es obligatorio'
+    if (!formData.message.trim() || formData.message.trim().length < 10) {
+      newErrors.message = 'Debe tener al menos 10 caracteres'
     }
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -76,9 +85,14 @@ export default function ContactForm() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+
+    // Prevent double submission
+    if (submittingRef.current || submitState !== 'idle') return
     if (!validate()) return
 
+    submittingRef.current = true
     setSubmitState('loading')
+    setServerError(null)
 
     try {
       const res = await fetch('/api/contact', {
@@ -87,11 +101,29 @@ export default function ContactForm() {
         body: JSON.stringify(formData),
       })
 
-      if (!res.ok) throw new Error('Network response was not ok')
+      const data = await res.json()
 
+      if (!res.ok) {
+        /* Show server validation errors */
+        const serverRes = data as ServerErrorResponse
+        if (serverRes.errors?.length) {
+          setServerError(serverRes.errors.join('. '))
+        } else {
+          setServerError('Ocurrió un error al enviar el formulario. Intentalo de nuevo.')
+        }
+        setSubmitState('error')
+        return
+      }
+
+      /* Success — clear form and show confirmation */
+      setFormData(INITIAL_FORM)
+      setErrors({})
       setSubmitState('success')
     } catch {
+      setServerError('Error de conexión. Verificá tu internet e intentalo de nuevo.')
       setSubmitState('error')
+    } finally {
+      submittingRef.current = false
     }
   }
 
@@ -99,8 +131,17 @@ export default function ContactForm() {
   const inputClass =
     'w-full px-4 py-3 border border-border rounded-lg bg-background text-foreground placeholder:text-muted focus:border-accent focus:ring-1 focus:ring-accent transition outline-none'
 
+  const errorClass = 'mt-1 text-sm text-red-500'
+
+  const pillClass = (isActive: boolean) =>
+    `px-5 py-2.5 rounded-full text-sm font-medium border transition ${
+      isActive
+        ? 'bg-accent text-white border-accent'
+        : 'bg-background text-foreground/70 border-border hover:border-accent/50'
+    }`
+
   return (
-    <section id="contact" className="min-h-screen px-4 lg:px-12 py-24 bg-accent-soft/30">
+    <section id="contact" className="min-h-dvh px-4 lg:px-12 py-24 bg-accent-soft/30">
       <motion.div
         className="max-w-2xl mx-auto"
         initial={{ opacity: 0, y: 20 }}
@@ -291,22 +332,22 @@ export default function ContactForm() {
               )}
             </div>
 
-            {/* Error banner */}
-            {submitState === 'error' && (
-              <motion.p
-                className="text-sm text-red-500"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+            {/* Server error banner — shows validation errors from the server */}
+            {serverError && (
+              <motion.div
+                className="p-4 bg-red-50 border border-red-200 rounded-lg"
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
               >
-                Ocurrió un error al enviar el formulario. Intentalo de nuevo.
-              </motion.p>
+                <p className="text-sm text-red-600">{serverError}</p>
+              </motion.div>
             )}
 
             {/* Submit */}
             <button
               type="submit"
               disabled={submitState === 'loading'}
-              className="inline-flex items-center gap-2 bg-accent text-white px-8 py-3 rounded-full font-medium hover:bg-accent/90 transition disabled:opacity-60 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 bg-accent text-white px-8 py-3 rounded-full font-medium hover:bg-accent/90 transition disabled:opacity-60 disabled:cursor-not-allowed w-full sm:w-auto justify-center"
             >
               {submitState === 'loading' ? (
                 <>

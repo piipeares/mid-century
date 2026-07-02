@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Montserrat, Inter } from "next/font/google";
 import ScrollToTop from "@/components/ScrollToTop";
 import "./globals.css";
@@ -28,6 +28,13 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fafaf9" },
+    { media: "(prefers-color-scheme: dark)", color: "#0c0a09" },
+  ],
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -39,6 +46,32 @@ export default function RootLayout({
       className={`${montserrat.variable} ${inter.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        {/* 
+          Inline script: 
+          1. Disables browser scroll restoration BEFORE Next.js loads
+          2. Scrolls to top on initial parse
+          3. Handles bfcache (pageshow) when navigating back/forward
+          4. Re-checks after load to catch framework overrides
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              history.scrollRestoration='manual';
+              (function(){
+                var scroll = function(){ window.scrollTo(0,0); };
+                scroll();
+                window.addEventListener('pageshow', function(e){
+                  if(e.persisted) scroll();
+                });
+                window.addEventListener('load', scroll);
+                var check = setInterval(function(){
+                  if(window.scrollY > 0) scroll();
+                }, 100);
+                setTimeout(function(){ clearInterval(check); }, 2000);
+              })();
+            `.replace(/\s+/g,' ').trim(),
+          }}
+        />
         <ScrollToTop />
         {children}
       </body>

@@ -46,14 +46,14 @@ export default function Hero({ images }: HeroProps) {
 
   if (!images.length) {
     return (
-      <section className="relative h-screen flex items-center justify-center bg-background">
+      <section className="relative h-dvh flex items-center justify-center bg-background">
         <p className="text-muted">No hay imágenes disponibles</p>
       </section>
     )
   }
 
   return (
-    <section className="relative h-screen overflow-hidden">
+    <section className="relative h-dvh overflow-hidden">
       {/* Background slideshow */}
       <AnimatePresence>
         <motion.div
@@ -102,14 +102,14 @@ export default function Hero({ images }: HeroProps) {
 
         <motion.h1
           variants={childVariants}
-          className="font-heading text-6xl lg:text-8xl font-bold text-white tracking-wide"
+          className="font-heading text-5xl sm:text-6xl lg:text-8xl font-bold text-white tracking-wide"
         >
           MIDCENTURY
         </motion.h1>
 
         <motion.p
           variants={childVariants}
-          className="mt-4 text-lg lg:text-xl text-white/90 font-light drop-shadow-lg"
+          className="mt-4 text-sm sm:text-lg lg:text-xl text-white/90 font-light drop-shadow-lg"
         >
           Una propiedad diseñada para la creatividad
         </motion.p>

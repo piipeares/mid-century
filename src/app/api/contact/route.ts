@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { promises as fs } from "node:fs";
-import path from "node:path";
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+const CONTACT_EMAIL = process.env.CONTACT_EMAIL ?? "vsarinelli@gmail.com";
 
 interface ContactBody {
   name: string;
@@ -12,7 +14,63 @@ interface ContactBody {
   message: string;
 }
 
-const SUBMISSIONS_DIR = path.join(process.cwd(), "data");
+function formatProductionType(type: ContactBody["productionType"]): string {
+  const labels: Record<ContactBody["productionType"], string> = {
+    photo: "Fotografía",
+    video: "Video",
+    event: "Evento",
+    other: "Otros",
+  };
+  return labels[type];
+}
+
+function buildEmailHtml(body: ContactBody): string {
+  const productionLabel = formatProductionType(body.productionType);
+  const contactLabel = body.contactMethod === "email" ? "Email" : "Teléfono";
+
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: system-ui, sans-serif; background: #fafaf9; padding: 40px 20px;">
+  <table style="max-width: 560px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.06);">
+    <tr>
+      <td style="padding: 32px; background: linear-gradient(135deg, #d97706, #f59e0b); text-align: center;">
+        <h1 style="color: white; font-size: 24px; margin: 0; letter-spacing: 0.3em;">MIDCENTURY</h1>
+        <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">Nuevo contacto desde el lookbook</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 32px;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 12px 0; border-bottom: 1px solid #e7e5e4; color: #a8a29e; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em;">Nombre / Agencia</td>
+            <td style="padding: 12px 0; border-bottom: 1px solid #e7e5e4; color: #1c1917; font-size: 15px; text-align: right;">${body.name}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 0; border-bottom: 1px solid #e7e5e4; color: #a8a29e; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em;">${contactLabel}</td>
+            <td style="padding: 12px 0; border-bottom: 1px solid #e7e5e4; color: #1c1917; font-size: 15px; text-align: right;">${body.contactValue}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 0; border-bottom: 1px solid #e7e5e4; color: #a8a29e; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em;">Tipo de Producción</td>
+            <td style="padding: 12px 0; border-bottom: 1px solid #e7e5e4; color: #1c1917; font-size: 15px; text-align: right;">${productionLabel}${body.productionType === "other" && body.otherDescription ? ` — ${body.otherDescription}` : ""}</td>
+          </tr>
+          ${body.dates ? `
+          <tr>
+            <td style="padding: 12px 0; border-bottom: 1px solid #e7e5e4; color: #a8a29e; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em;">Fechas</td>
+            <td style="padding: 12px 0; border-bottom: 1px solid #e7e5e4; color: #1c1917; font-size: 15px; text-align: right;">${body.dates}</td>
+          </tr>` : ""}
+          <tr>
+            <td style="padding: 12px 0; color: #a8a29e; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; vertical-align: top;">Mensaje</td>
+            <td style="padding: 12px 0; color: #1c1917; font-size: 15px; text-align: right; white-space: pre-wrap;">${body.message}</td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,26 +111,32 @@ export async function POST(request: NextRequest) {
     }
 
     if (errors.length > 0) {
+      console.warn("Contact form validation errors:", errors, "body:", { ...body, contactValue: "***" });
       return NextResponse.json(
         { ok: false, errors },
         { status: 400 }
       );
     }
 
-    // ── Persist submission ─────────────────────────────────
-    await fs.mkdir(SUBMISSIONS_DIR, { recursive: true });
+    // ── Send email via Resend ──────────────────────────────
+    const html = buildEmailHtml(body);
+    const subject = `Nuevo contacto — ${body.name} (${body.contactValue})`;
 
-    const submission = {
-      ...body,
-      receivedAt: new Date().toISOString(),
-    };
+    const { error: resendError } = await resend.emails.send({
+      from: "Midcentury Lookbook <onboarding@resend.dev>",
+      to: CONTACT_EMAIL,
+      replyTo: body.contactMethod === "email" ? body.contactValue : undefined,
+      subject,
+      html,
+    });
 
-    const filename = `contact-${Date.now()}.json`;
-    await fs.writeFile(
-      path.join(SUBMISSIONS_DIR, filename),
-      JSON.stringify(submission, null, 2),
-      "utf-8"
-    );
+    if (resendError) {
+      console.error("Resend error:", resendError);
+      return NextResponse.json(
+        { ok: false, errors: ["Error al enviar el email."] },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(
       { ok: true, message: "Gracias por tu interés. Te contactaremos pronto." },
