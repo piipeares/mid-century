@@ -5,15 +5,11 @@ import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import SectionSelector from './SectionSelector'
 import Lightbox from './Lightbox'
-import type { ImageFile, GallerySection } from '@/types'
+import type { GallerySection } from '@/types'
 
 interface GalleryProps {
   sections: GallerySection[]
 }
-
-const SECTION_OPTIONS: { slug: string; title: string }[] = [
-  { slug: 'todas', title: 'Todas' },
-]
 
 export default function Gallery({ sections }: GalleryProps) {
   const [selectedSection, setSelectedSection] = useState('todas')
@@ -116,7 +112,7 @@ export default function Gallery({ sections }: GalleryProps) {
                     <div
                       key={image.src}
                       className="break-inside-avoid overflow-hidden rounded-lg relative group cursor-pointer"
-                      style={{ aspectRatio: image.aspectRatio }}
+                      style={{ aspectRatio: '4/5' }}
                       onClick={() => openLightbox(displayIdx)}
                     >
                       <Image
@@ -138,9 +134,6 @@ export default function Gallery({ sections }: GalleryProps) {
           ))}
         </motion.div>
       </AnimatePresence>
-
-      {/* Bottom fade */}
-      <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-background to-transparent pointer-events-none" />
 
       {/* Lightbox */}
       {lightboxIndex !== null && (
