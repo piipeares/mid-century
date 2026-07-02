@@ -23,7 +23,7 @@ const COPY_EXTENSIONS = new Set([".png", ".webp", ".avif", ".svg", ".gif"]);
 
 async function convertToWebp(inputBuffer) {
   const sharp = (await import("sharp")).default;
-  return sharp(inputBuffer).webp({ quality: 85 }).toBuffer();
+  return sharp(inputBuffer).rotate().webp({ quality: 85 }).toBuffer();
 }
 
 async function convertHeicToWebp(inputBuffer) {
@@ -34,7 +34,7 @@ async function convertHeicToWebp(inputBuffer) {
     format: "JPEG",
     quality: 0.92,
   });
-  return sharp(jpegBuffer).webp({ quality: 85 }).toBuffer();
+  return sharp(jpegBuffer).rotate().webp({ quality: 85 }).toBuffer();
 }
 
 function getDstName(filename) {

@@ -24,36 +24,15 @@ export default function Gallery({ sections }: GalleryProps) {
     return opts
   }, [sections])
 
-  /* Flattened images for lightbox navigation */
-  const allImages = useMemo(() => {
-    return sections.flatMap((s) => s.images)
-  }, [sections])
-
-  /* Images currently visible + section metadata */
-  const { displaySections, displayImages, imageOffset } = useMemo(() => {
+  /* Images currently visible */
+  const { displaySections, displayImages } = useMemo(() => {
     if (selectedSection === 'todas') {
-      // Group by section with section headers
-      return {
-        displaySections: sections,
-        displayImages: sections.flatMap((s) => s.images),
-        imageOffset: 0,
-      }
+      return { displaySections: sections, displayImages: sections.flatMap((s) => s.images) }
     }
     const sec = sections.find((s) => s.slug === selectedSection)
-    if (!sec) return { displaySections: [], displayImages: [], imageOffset: 0 }
-    // Find offset in allImages for lightbox index mapping
-    const offset = allImages.indexOf(sec.images[0])
-    return {
-      displaySections: [sec],
-      displayImages: sec.images,
-      imageOffset: offset >= 0 ? offset : 0,
-    }
-  }, [selectedSection, sections, allImages])
-
-  /* Lightbox click: map from display index to allImages index */
-  const openLightbox = (displayIdx: number) => {
-    setLightboxIndex(imageOffset + displayIdx)
-  }
+    if (!sec) return { displaySections: [], displayImages: [] }
+    return { displaySections: [sec], displayImages: sec.images }
+  }, [selectedSection, sections])
 
   return (
     <section id="gallery" className="relative px-4 lg:px-12 pt-24 pb-32">
@@ -103,8 +82,8 @@ export default function Gallery({ sections }: GalleryProps) {
                 </h3>
               )}
 
-              {/* Masonry columns for this section */}
-              <div className="columns-2 sm:columns-3 lg:columns-4 gap-4 [&>*]:mb-4">
+              {/* Grid — consistent column count */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                 {section.images.map((image, idx) => {
                   /* Compute display index across all images */
                   const displayIdx = displayImages.indexOf(image)
@@ -113,7 +92,7 @@ export default function Gallery({ sections }: GalleryProps) {
                       key={image.src}
                       className="break-inside-avoid overflow-hidden rounded-lg relative group cursor-pointer"
                       style={{ aspectRatio: '4/5' }}
-                      onClick={() => openLightbox(displayIdx)}
+                      onClick={() => setLightboxIndex(displayIdx)}
                     >
                       <Image
                         src={image.src}
@@ -135,10 +114,10 @@ export default function Gallery({ sections }: GalleryProps) {
         </motion.div>
       </AnimatePresence>
 
-      {/* Lightbox */}
+      {/* Lightbox — navigates within current section only */}
       {lightboxIndex !== null && (
         <Lightbox
-          images={allImages}
+          images={displayImages}
           initialIndex={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
         />
