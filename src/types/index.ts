@@ -24,6 +24,10 @@ export interface ContactFormData {
 }
 
 export interface GallerySection {
+  /** URL-friendly folder name, e.g. "cuartos-e-interiores" — wait, actually the raw folder name */
+  slug: string;
+  /** Display title, e.g. "Cuartos e Interiores" */
   title: string;
+  /** Images in this section */
   images: ImageFile[];
 }

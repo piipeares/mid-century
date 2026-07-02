@@ -1,22 +1,27 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { ImageFile } from "@/types";
+import type { ImageFile, GallerySection } from "@/types";
 
-const IMGS_SOURCE_DIR = path.join(process.cwd(), "imgs");
-const IMGS_PUBLIC_DIR = path.join(process.cwd(), "public", "imgs");
-
-/** Image extensions supported by the gallery (lowercase). */
-const SUPPORTED_EXTENSIONS = new Set([
-  ".jpg", ".jpeg", ".png", ".webp", ".avif", ".svg", ".gif",
-  ".heic", ".heif",
-]);
+const IMGS_SRC = path.join(process.cwd(), "imgs");
+const IMGS_PUBLIC = path.join(process.cwd(), "public", "imgs");
 
 /** Source formats that get converted to .webp at build time. */
-const CONVERTIBLE_EXTENSIONS = new Set([".heic", ".heif", ".jpg", ".jpeg"]);
+const CONVERTIBLE_EXT = new Set([".jpg", ".jpeg", ".heic", ".heif", ".png"]);
+/** Formats already web-friendly — copied as-is. */
+const COPY_EXT = new Set([".webp", ".avif", ".svg", ".gif"]);
+/** All supported extensions. */
+const SUPPORTED_EXT = new Set([...CONVERTIBLE_EXT, ...COPY_EXT]);
 
-/**
- * Maps a file extension to our normalized format string.
- */
+/** Ordered gallery sections: key matches folder name, value is display title. */
+const SECTION_ORDER: Record<string, string> = {
+  "cuartos e interiores": "Cuartos e Interiores",
+  living: "Living",
+  exterior: "Exteriores",
+  pileta: "Pileta",
+  banos: "Baños",
+  galeria: "Galería",
+};
+
 function classifyExtension(ext: string): ImageFile["format"] {
   switch (ext) {
     case ".jpg":
@@ -35,18 +40,21 @@ function classifyExtension(ext: string): ImageFile["format"] {
   }
 }
 
-/**
- * Safely extract image dimensions + blur placeholder from a file using sharp.
- * Falls back to a reasonable default if sharp fails or file is missing.
- */
-async function getImageMetadata(
-  filepath: string
-): Promise<{ width: number; height: number; blurDataURL?: string }> {
+/** Expected public filename after build conversion. */
+function publicFilename(sourceName: string): string {
+  const ext = path.extname(sourceName).toLowerCase();
+  if (CONVERTIBLE_EXT.has(ext)) {
+    const dot = sourceName.lastIndexOf(".");
+    return (dot > 0 ? sourceName.slice(0, dot) : sourceName) + ".webp";
+  }
+  return sourceName;
+}
+
+async function getImageMeta(filepath: string) {
   try {
     const sharp = (await import("sharp")).default;
     const meta = await sharp(filepath).metadata();
 
-    /* Generate a tiny 20px-wide WebP as blur placeholder */
     const blurBuffer = await sharp(filepath)
       .resize(20, undefined, { fit: "inside" })
       .webp({ quality: 30 })
@@ -57,122 +65,114 @@ async function getImageMetadata(
       return { width: meta.width, height: meta.height, blurDataURL };
     }
   } catch {
-    // sharp may fail for SVGs or other edge cases
+    // sharp may fail for SVGs
   }
   return { width: 800, height: 600 };
 }
 
 /**
- * Read all images from the source `imgs/` directory,
- * extract dimensions, and return an array of `ImageFile` metadata.
- *
- * Scans both the source `imgs/` folder (for listing) and the
- * `public/imgs/` folder (for actually serving images, since
- * Next.js only serves files from `public/`).
- *
- * Files without a corresponding public copy (HEIC originals not
- * yet converted) are excluded.
+ * Read images from a specific source subdirectory (relative to imgs/).
+ * Returns ImageFile[] with src paths relative to /.
  */
-export async function getImages(): Promise<ImageFile[]> {
-  // Ensure public/imgs exists
-  if (!fs.existsSync(IMGS_PUBLIC_DIR)) {
-    fs.mkdirSync(IMGS_PUBLIC_DIR, { recursive: true });
-  }
+async function readDirImages(subdir: string): Promise<ImageFile[]> {
+  const srcDir = path.join(IMGS_SRC, subdir);
+  const pubDir = path.join(IMGS_PUBLIC, subdir);
 
-  // Build set of available public images
-  let publicFiles: string[];
-  try {
-    publicFiles = fs.readdirSync(IMGS_PUBLIC_DIR);
-  } catch {
-    return [];
-  }
-  const publicSet = new Set(publicFiles);
+  if (!fs.existsSync(pubDir)) return [];
 
-  // Read the source directory
-  let sourceEntries: string[];
+  const pubFiles = new Set(fs.readdirSync(pubDir));
+  let srcEntries: string[];
   try {
-    sourceEntries = fs.readdirSync(IMGS_SOURCE_DIR);
+    srcEntries = fs.readdirSync(srcDir);
   } catch {
     return [];
   }
 
   const results: ImageFile[] = [];
 
-  for (const filename of sourceEntries) {
-    const ext = path.extname(filename).toLowerCase();
-
-    // Skip non-images and hidden files
+  for (const filename of srcEntries) {
     if (filename.startsWith(".")) continue;
-    if (!SUPPORTED_EXTENSIONS.has(ext)) continue;
+    const ext = path.extname(filename).toLowerCase();
+    if (!SUPPORTED_EXT.has(ext)) continue;
 
-    // For convertible source formats (HEIC, JPG), look for the .webp version in public
-    let publicFilename: string;
-    if (CONVERTIBLE_EXTENSIONS.has(ext)) {
-      const dot = filename.lastIndexOf(".");
-      publicFilename = (dot > 0 ? filename.slice(0, dot) : filename) + ".webp";
-    } else {
-      publicFilename = filename;
-    }
+    const pubName = publicFilename(filename);
+    if (!pubFiles.has(pubName)) continue;
 
-    // Skip if no public copy exists (not converted yet)
-    if (!publicSet.has(publicFilename)) continue;
-
-    const publicPath = path.join(IMGS_PUBLIC_DIR, publicFilename);
-    const { width, height, blurDataURL } = await getImageMetadata(publicPath);
+    const pubPath = path.join(pubDir, pubName);
+    const { width, height, blurDataURL } = await getImageMeta(pubPath);
 
     results.push({
-      src: `/imgs/${publicFilename}`,
-      filename: publicFilename,
+      src: `/imgs/${subdir}/${pubName}`,
+      filename: pubName,
       width,
       height,
       aspectRatio: width / height,
-      format: classifyExtension(path.extname(publicFilename).toLowerCase()),
+      format: classifyExtension(path.extname(pubName).toLowerCase()),
       blurDataURL,
     });
   }
 
-  // Sort by filename for consistent ordering
   results.sort((a, b) => a.filename.localeCompare(b.filename));
-
   return results;
 }
 
+/** Parse numeric prefix from filename for hero sorting. */
+function numericSort(a: ImageFile, b: ImageFile): number {
+  const aNum = parseInt(a.filename, 10);
+  const bNum = parseInt(b.filename, 10);
+  if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+  return a.filename.localeCompare(b.filename);
+}
+
+// ══════════════════════════════════════════════════
+//  Public API
+// ══════════════════════════════════════════════════
+
 /**
- * Get only images whose filename starts with one of the given prefixes.
- * Used to select featured images for the hero slideshow.
+ * Hero slideshow images from imgs/hero/ — sorted numerically (1, 2, 3…).
  */
-export async function getFeaturedImages(
-  prefixes: string[]
-): Promise<ImageFile[]> {
-  const all = await getImages();
-
-  // Prefer "clean" filenames (no parentheses, no " - Copy") for featured
-  const sorted = [...all].sort((a, b) => {
-    const aClean = !/[(\-]/.test(a.filename) ? 0 : 1;
-    const bClean = !/[(\-]/.test(b.filename) ? 0 : 1;
-    return aClean - bClean || a.filename.localeCompare(b.filename);
-  });
-
-  const used = new Set<string>();
-  const result: ImageFile[] = [];
-
-  for (const img of sorted) {
-    const match = prefixes.find((p) => img.filename.startsWith(p));
-    if (match && !used.has(match)) {
-      used.add(match);
-      result.push(img);
-    }
-    if (used.size === prefixes.length) break;
-  }
-
-  return result;
+export async function getHeroImages(): Promise<ImageFile[]> {
+  const images = await readDirImages("hero");
+  images.sort(numericSort);
+  return images;
 }
 
 /**
- * HEIC conversion check — returns true if there are unconverted HEIC files.
+ * All gallery sections, preserving SECTION_ORDER.
+ * Excludes the "hero" folder.
  */
-export function hasUnconvertedHeic(): boolean {
-  if (!fs.existsSync(IMGS_SOURCE_DIR)) return false;
-  const files = fs.readdirSync(IMGS_SOURCE_DIR);
-  return files.some((f) => /\.heic$/i.test(f));
+export async function getGallerySections(): Promise<GallerySection[]> {
+  if (!fs.existsSync(IMGS_SRC)) return [];
+
+  const folders = fs.readdirSync(IMGS_SRC, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && d.name !== "hero")
+    .map((d) => d.name);
+
+  // Sort by SECTION_ORDER, unknown folders go last
+  folders.sort((a, b) => {
+    const ai = Object.keys(SECTION_ORDER).indexOf(a);
+    const bi = Object.keys(SECTION_ORDER).indexOf(b);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+
+  const sections: GallerySection[] = [];
+
+  for (const folder of folders) {
+    const images = await readDirImages(folder);
+    if (images.length === 0) continue;
+    sections.push({
+      slug: folder,
+      title: SECTION_ORDER[folder] || folder,
+      images,
+    });
+  }
+
+  return sections;
+}
+
+/**
+ * Flatten all gallery sections into a single ImageFile[] for the "Todas" view.
+ */
+export async function getAllGalleryImages(): Promise<GallerySection[]> {
+  return getGallerySections();
 }
