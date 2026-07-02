@@ -16,20 +16,22 @@ function makeRequest(body: Record<string, unknown>): NextRequest {
   })
 }
 
+const validBody = {
+  name: 'Agencia Creativa SRL',
+  contactMethod: 'email',
+  contactValue: 'agencia@email.com',
+  productionType: 'photo',
+  dates: 'Marzo - Mayo 2026',
+  message: 'Queremos hacer una producción de fotografía editorial en la locación.',
+}
+
 describe('POST /api/contact', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
   it('accepts a valid submission', async () => {
-    const res = await POST(
-      makeRequest({
-        name: 'Agencia Creativa SRL',
-        productionType: 'photo',
-        dates: 'Marzo - Mayo 2026',
-        message: 'Queremos hacer una producción de fotografía editorial en la locación.',
-      })
-    )
+    const res = await POST(makeRequest(validBody))
 
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -39,11 +41,7 @@ describe('POST /api/contact', () => {
 
   it('rejects a submission with a too-short name', async () => {
     const res = await POST(
-      makeRequest({
-        name: 'A',
-        productionType: 'photo',
-        message: 'Queremos hacer una producción de fotografía.',
-      })
+      makeRequest({ ...validBody, name: 'A' })
     )
 
     expect(res.status).toBe(400)
@@ -52,13 +50,52 @@ describe('POST /api/contact', () => {
     expect(body.errors).toContain('El nombre o agencia debe tener al menos 2 caracteres.')
   })
 
-  it('rejects a submission with an invalid production type', async () => {
+  it('requires a contact value', async () => {
     const res = await POST(
-      makeRequest({
-        name: 'Agencia X',
-        productionType: 'film',
-        message: 'Queremos hacer una producción de fotografía editorial.',
-      })
+      makeRequest({ ...validBody, contactValue: '' })
+    )
+
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.ok).toBe(false)
+    expect(body.errors).toContain('El email o teléfono es obligatorio.')
+  })
+
+  it('validates email format when method is email', async () => {
+    const res = await POST(
+      makeRequest({ ...validBody, contactMethod: 'email', contactValue: 'not-an-email' })
+    )
+
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.ok).toBe(false)
+    expect(body.errors).toContain('Ingresá un email válido.')
+  })
+
+  it('validates phone format when method is phone', async () => {
+    const res = await POST(
+      makeRequest({ ...validBody, contactMethod: 'phone', contactValue: 'abc' })
+    )
+
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.ok).toBe(false)
+    expect(body.errors).toContain('Ingresá un número de teléfono válido.')
+  })
+
+  it('accepts valid phone number', async () => {
+    const res = await POST(
+      makeRequest({ ...validBody, contactMethod: 'phone', contactValue: '+54 11 1234-5678' })
+    )
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.ok).toBe(true)
+  })
+
+  it('rejects an invalid production type', async () => {
+    const res = await POST(
+      makeRequest({ ...validBody, productionType: 'film' })
     )
 
     expect(res.status).toBe(400)
@@ -69,11 +106,7 @@ describe('POST /api/contact', () => {
 
   it('rejects a submission with a too-short message', async () => {
     const res = await POST(
-      makeRequest({
-        name: 'Agencia X',
-        productionType: 'video',
-        message: 'Hola',
-      })
+      makeRequest({ ...validBody, message: 'Hola' })
     )
 
     expect(res.status).toBe(400)
@@ -83,13 +116,8 @@ describe('POST /api/contact', () => {
   })
 
   it('accepts a submission without optional dates field', async () => {
-    const res = await POST(
-      makeRequest({
-        name: 'Productora Cine',
-        productionType: 'event',
-        message: 'Estamos organizando un evento corporativo de 3 días.',
-      })
-    )
+    const { dates, ...rest } = validBody
+    const res = await POST(makeRequest(rest))
 
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -113,6 +141,8 @@ describe('POST /api/contact', () => {
     const res = await POST(
       makeRequest({
         name: '',
+        contactMethod: 'email',
+        contactValue: '',
         productionType: 'photo',
         message: '',
       })
@@ -120,18 +150,18 @@ describe('POST /api/contact', () => {
 
     expect(res.status).toBe(400)
     const body = await res.json()
-    expect(body.errors).toHaveLength(2)
+    expect(body.errors.length).toBeGreaterThanOrEqual(3)
     expect(body.errors).toContain('El nombre o agencia debe tener al menos 2 caracteres.')
+    expect(body.errors).toContain('El email o teléfono es obligatorio.')
     expect(body.errors).toContain('El mensaje debe tener al menos 10 caracteres.')
   })
 
   it('accepts "other" production type with description', async () => {
     const res = await POST(
       makeRequest({
-        name: 'Productora X',
+        ...validBody,
         productionType: 'other',
         otherDescription: 'Podcast y streaming',
-        message: 'Queremos grabar una serie de podcasts en la locación.',
       })
     )
 
@@ -143,9 +173,8 @@ describe('POST /api/contact', () => {
   it('rejects "other" production type without description', async () => {
     const res = await POST(
       makeRequest({
-        name: 'Productora X',
+        ...validBody,
         productionType: 'other',
-        message: 'Queremos hacer algo diferente en la locación.',
       })
     )
 

@@ -4,6 +4,8 @@ import path from "node:path";
 
 interface ContactBody {
   name: string;
+  contactMethod: "email" | "phone";
+  contactValue: string;
   productionType: "photo" | "video" | "event" | "other";
   otherDescription?: string;
   dates?: string;
@@ -21,6 +23,18 @@ export async function POST(request: NextRequest) {
 
     if (!body.name || body.name.trim().length < 2) {
       errors.push("El nombre o agencia debe tener al menos 2 caracteres.");
+    }
+
+    if (!["email", "phone"].includes(body.contactMethod)) {
+      errors.push("Medio de contacto inválido.");
+    }
+
+    if (!body.contactValue || body.contactValue.trim().length < 3) {
+      errors.push("El email o teléfono es obligatorio.");
+    } else if (body.contactMethod === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.contactValue)) {
+      errors.push("Ingresá un email válido.");
+    } else if (body.contactMethod === "phone" && !/^[\d\s\-\+\(\)]{7,20}$/.test(body.contactValue)) {
+      errors.push("Ingresá un número de teléfono válido.");
     }
 
     if (!["photo", "video", "event", "other"].includes(body.productionType)) {

@@ -17,6 +17,8 @@ export interface ImageFile {
 
 export interface ContactFormData {
   name: string;
+  contactMethod: "email" | "phone";
+  contactValue: string;
   productionType: "photo" | "video" | "event" | "other";
   otherDescription?: string;
   dates: string;

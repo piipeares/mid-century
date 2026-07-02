@@ -19,6 +19,8 @@ const PRODUCTION_OPTIONS: ProductionOption[] = [
 
 interface FormErrors {
   name?: string
+  contactMethod?: string
+  contactValue?: string
   productionType?: string
   otherDescription?: string
   message?: string
@@ -29,6 +31,8 @@ type SubmitState = 'idle' | 'loading' | 'success' | 'error'
 export default function ContactForm() {
   const [formData, setFormData] = useState<ContactFormData>({
     name: '',
+    contactMethod: 'email',
+    contactValue: '',
     productionType: 'photo',
     otherDescription: '',
     dates: '',
@@ -52,6 +56,13 @@ export default function ContactForm() {
     const newErrors: FormErrors = {}
     if (!formData.name.trim()) {
       newErrors.name = 'Este campo es obligatorio'
+    }
+    if (!formData.contactValue.trim()) {
+      newErrors.contactValue = 'Este campo es obligatorio'
+    } else if (formData.contactMethod === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactValue)) {
+      newErrors.contactValue = 'Ingresá un email válido'
+    } else if (formData.contactMethod === 'phone' && !/^[\d\s\-\+\(\)]{7,20}$/.test(formData.contactValue)) {
+      newErrors.contactValue = 'Ingresá un número de teléfono válido'
     }
     if (formData.productionType === 'other' && !formData.otherDescription?.trim()) {
       newErrors.otherDescription = 'Describí brevemente tu tipo de producción'
@@ -146,6 +157,44 @@ export default function ContactForm() {
               />
               {errors.name && (
                 <p className="mt-1 text-sm text-red-500">{errors.name}</p>
+              )}
+            </div>
+
+            {/* Contact method */}
+            <div>
+              <label className="text-sm font-medium text-foreground/80 mb-2 block">
+                Medio de Contacto <span className="text-red-500">*</span>
+              </label>
+              <div className="flex gap-2 mb-3">
+                {(['email', 'phone'] as const).map((method) => (
+                  <button
+                    key={method}
+                    type="button"
+                    onClick={() => {
+                      setFormData((prev) => ({ ...prev, contactMethod: method, contactValue: '' }))
+                      if (errors.contactValue) setErrors((prev) => ({ ...prev, contactValue: undefined }))
+                    }}
+                    className={`px-5 py-2 rounded-full text-sm font-medium border transition ${
+                      formData.contactMethod === method
+                        ? 'bg-accent text-white border-accent'
+                        : 'bg-background text-foreground/70 border-border hover:border-accent/50'
+                    }`}
+                  >
+                    {method === 'email' ? 'Email' : 'Teléfono'}
+                  </button>
+                ))}
+              </div>
+              <input
+                id="contactValue"
+                name="contactValue"
+                type={formData.contactMethod === 'email' ? 'email' : 'tel'}
+                value={formData.contactValue}
+                onChange={handleChange}
+                className={inputClass}
+                placeholder={formData.contactMethod === 'email' ? 'tu@email.com' : '+54 11 1234-5678'}
+              />
+              {errors.contactValue && (
+                <p className="mt-1 text-sm text-red-500">{errors.contactValue}</p>
               )}
             </div>
 
