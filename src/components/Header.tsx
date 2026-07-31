@@ -27,9 +27,9 @@ export default function Header() {
 
       <div className="relative flex items-center justify-between">
         {/* Logo */}
-        <span className="font-heading text-lg tracking-[0.3em] text-foreground">
+        <a href="/" className="font-heading text-lg tracking-[0.3em] text-foreground hover:text-accent transition-colors">
           MIDCENTURY
-        </span>
+        </a>
 
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-8">
