@@ -35,25 +35,17 @@ export default function Gallery({ sections }: GalleryProps) {
   }, [selectedSection, sections])
 
   return (
-    <section id="gallery" className="relative px-4 lg:px-12 pt-20 sm:pt-24 pb-20 sm:pb-32">
-      {/* Separator */}
-      <div className="max-w-6xl mx-auto mb-12">
-        <div className="w-full h-px bg-border/40" />
-      </div>
-
+    <section id="gallery" className="relative px-4 lg:px-12 pt-12 pb-20 sm:pb-32">
       {/* Section header */}
       <motion.div
-        className="mb-8"
+        className="mb-6"
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.3 }}
         transition={{ duration: 0.6 }}
       >
-        <span className="text-xs uppercase tracking-[0.25em] text-accent font-medium">
+        <h2 className="font-heading text-4xl lg:text-5xl text-foreground inline-block">
           Galería
-        </span>
-        <h2 className="font-heading text-4xl lg:text-5xl text-foreground mt-3 inline-block">
-          Explorá el espacio
           <span className="block mt-2 h-1 w-16 bg-accent rounded-full" />
         </h2>
       </motion.div>
