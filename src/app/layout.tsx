@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Montserrat, Inter } from "next/font/google";
 import ScrollToTop from "@/components/ScrollToTop";
+import Footer from "@/components/Footer";
+import WhatsAppFloat from "@/components/WhatsAppFloat";
 import "./globals.css";
 
 const montserrat = Montserrat({
@@ -74,6 +76,8 @@ export default function RootLayout({
         />
         <ScrollToTop />
         {children}
+        <Footer />
+        <WhatsAppFloat />
       </body>
     </html>
   );
