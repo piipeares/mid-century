@@ -27,9 +27,15 @@ export default function Header() {
 
       <div className="relative flex items-center justify-between">
         {/* Logo */}
-        <a href="/" className="font-heading text-lg tracking-[0.3em] text-foreground hover:text-accent transition-colors">
+        <button
+          onClick={(e) => {
+            e.preventDefault()
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+          className="font-heading text-lg tracking-[0.3em] text-foreground hover:text-accent transition-colors"
+        >
           MIDCENTURY
-        </a>
+        </button>
 
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-8">

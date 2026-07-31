@@ -62,6 +62,17 @@ export default function Footer() {
             </a>
           </div>
         </motion.div>
+
+        {/* Dev credit */}
+        <motion.p
+          className="text-center text-[11px] text-muted/50 mt-6"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          Desarrollada por Felipe Ares Pacheco
+        </motion.p>
       </div>
     </footer>
   )
